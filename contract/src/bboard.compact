@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: Apache-2.0
+// PrivateAIVault: commit AI-processed sensitive records to Midnight
+// without ever putting the raw sensitive content on the public ledger.
+//
+// Flow:
+// 1. Off-chain (redact.mjs), an AI step scans raw text, classifies and
+//    redacts sensitive spans (names, emails, ids), and computes a
+//    SHA-256 commitment of the ORIGINAL raw text. The raw text itself
+//    never leaves the local machine past this point.
+// 2. Only that commitment (a 32-byte hash) is passed into this
+//    contract. The circuit discloses it to the public ledger. Nothing
+//    about the underlying sensitive content is derivable from it.
+// 3. Anyone holding a candidate original text can locally recompute its
+//    SHA-256 and call verifyMatchesCommitment to prove -- without
+//    revealing the candidate to anyone else -- whether it matches the
+//    committed record.
+
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+export enum RecordState {
+  EMPTY,
+  COMMITTED
+}
+
+export ledger state: RecordState;
+
+// Public commitment to the raw sensitive record: a one-way hash,
+// computed off-chain, never the data itself.
+export ledger commitment: Maybe<Bytes<32>>;
+
+// How many spans the off-chain AI step redacted. A count is not
+// sensitive on its own, so it is safe to disclose directly.
+export ledger redactedSpanCount: Counter;
+
+// Owner binding, derived from a private local key -- never the raw key.
+export ledger owner: Bytes<32>;
+
+constructor() {
+  state = RecordState.EMPTY;
+  commitment = none<Bytes<32>>();
+}
+
+witness localSecretKey(): Bytes<32>;
+
+// secretDataHash: a commitment (e.g. SHA-256) computed OFF-CHAIN over
+// the raw sensitive record. The raw record itself is never passed to
+// this circuit, never touches the ledger, and is not recoverable from
+// the hash.
+export circuit commitRecord(secretDataHash: Bytes<32>, spanCount: Uint<16>): [] {
+  assert(state == RecordState.EMPTY, "A record is already committed");
+  owner = disclose(publicKey(localSecretKey()));
+  commitment = disclose(some<Bytes<32>>(secretDataHash));
+  redactedSpanCount.increment(disclose(spanCount));
+  state = RecordState.COMMITTED;
+}
+
+// Compare a candidate commitment (recomputed locally by whoever holds a
+// candidate original) against the one stored on-chain. The comparison
+// itself never exposes either value to a third party -- only the
+// caller learns the boolean result.
+export circuit verifyMatchesCommitment(candidateHash: Bytes<32>): Boolean {
+  assert(state == RecordState.COMMITTED, "No record committed yet");
+  return some<Bytes<32>>(candidateHash) == commitment;
+}
+
+export circuit publicKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "privateai:pk:"), sk]);
+}
