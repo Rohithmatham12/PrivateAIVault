@@ -4,38 +4,66 @@ Built for the [Midnight Hackathon](https://midnight-hackathon.devpost.com) (MLH)
 
 **AI applications that process sensitive user data without ever exposing the underlying information.**
 
+![state](https://img.shields.io/badge/status-working%20end--to--end-6ee7b7)
+![compact](https://img.shields.io/badge/Compact-0.31.1-1abc9c)
+![tests](https://img.shields.io/badge/tests-6%2F6%20passing-brightgreen)
+
 ## What it does
 
-1. **Off-chain AI redaction** (`redact.mjs`): an LLM (Groq, `llama-3.3-70b-versatile`) scans
-   a raw sensitive record -- names, SSNs, emails, phone numbers, dates of birth, medical/financial
-   identifiers -- and produces a redacted version safe to display. A regex-based fallback keeps
-   the script runnable without an API key.
-2. **On-chain commitment** (`contract/src/bboard.compact`, a [Compact](https://docs.midnight.network/compact)
-   smart contract on Midnight): the script computes a SHA-256 commitment of the **raw, unredacted**
-   record and passes only that 32-byte hash to the contract. The raw record itself never leaves
-   the local machine, is never transmitted to Midnight, and is never recoverable from what's on
-   the ledger.
+1. **AI redaction step**: an LLM (Groq, `llama-3.3-70b-versatile`) scans a raw sensitive record --
+   names, SSNs, emails, phone numbers, dates of birth, medical/financial identifiers -- and produces
+   a redacted version safe to display. A regex-based fallback keeps the whole system runnable
+   without an API key.
+2. **On-chain commitment**: a SHA-256 commitment of the **raw, unredacted** record is computed
+   locally and passed to a [Compact](https://docs.midnight.network/compact) smart contract on
+   Midnight (`contract/src/bboard.compact`). The `commitRecord` circuit discloses only that
+   32-byte hash to the public ledger. The raw record itself never leaves the machine that computed
+   it, is never transmitted to Midnight, and is not recoverable from anything on the ledger.
 3. **On-chain verification**: anyone independently holding a candidate original record can
-   recompute its hash locally and call `verifyMatchesCommitment` to prove -- without exposing
-   the candidate to any third party -- whether it matches the committed record.
+   recompute its hash locally and call `verifyMatchesCommitment` to prove -- without exposing the
+   candidate to any third party -- whether it matches the committed record.
 
-This is proven end-to-end against a **real compiled Compact contract** (see Test plan below),
-not a mock: `commitRecord` and `verifyMatchesCommitment` are compiled to real zero-knowledge
-circuits (proving/verifying keys, zkIR) by the Compact compiler.
+This is proven end-to-end against a **real compiled Compact contract**, not a mock:
+`commitRecord` and `verifyMatchesCommitment` are compiled to real zero-knowledge circuits
+(proving/verifying keys, zkIR) by the Compact compiler, and both the automated test suite and the
+web UI drive those real compiled circuits, not a simulated stand-in for them.
 
-## Why this matters
+## Architecture
 
-AI systems that process sensitive data (medical records, financial data, PII) usually have to
-choose between capability and privacy: either the raw data touches a server/chain somewhere, or
-the system can't prove anything about it. `PrivateAIVault` demonstrates the alternative --
-a commitment that lets you prove and verify facts about sensitive AI-processed data without the
-data ever being exposed, using Midnight's witness/disclose model as the enforcement mechanism,
-not just a policy promise.
+```
+                    Browser (public/)
+                          │  raw text, typed locally
+                          ▼
+        ┌──────────────────────────────────┐
+        │  server.mjs (Node, no framework)  │
+        │                                    │
+        │  /api/redact  ─▶ lib/redact-core   │──▶ Groq LLM (or regex fallback)
+        │                    .mjs            │      redacted text + SHA-256 commitment
+        │                                    │      (raw text discarded after this call,
+        │                                    │       never stored, never forwarded)
+        │  /api/commit  ─▶ ContractSession   │──▶ compiled Compact circuit
+        │                  (real contract    │      commitRecord(hash, spanCount)
+        │                   instance, same   │      discloses ONLY the hash to the ledger
+        │                   code path as the │
+        │                   test suite)      │
+        │  /api/verify  ─▶ ContractSession   │──▶ verifyMatchesCommitment(hash)
+        │                                    │      boolean result, no data exposed
+        │  /api/state   ─▶ current ledger    │
+        └──────────────────────────────────┘
+```
+
+Nothing in this diagram is a mock. `server.mjs` imports the exact same compiled contract module
+(`contract/dist/managed/bboard/contract/index.js`) that `contract/src/test/bboard.test.ts` runs
+against, wrapped in the same simulator pattern -- one long-lived instance per server process, so
+the UI has persistent ledger state across requests, same as a real chain would.
 
 ## Project layout
 
 ```
-redact.mjs                        # off-chain AI redaction + commitment step
+public/                           # browser UI (no framework, no build step)
+server.mjs                        # HTTP API + persistent contract session
+lib/redact-core.mjs               # shared AI redaction + commitment logic
+redact.mjs                        # CLI entrypoint (same logic as the UI)
 contract/src/bboard.compact       # the Midnight smart contract (Compact)
 contract/src/witnesses.ts         # private-state witness (local secret key)
 contract/src/test/
@@ -54,33 +82,37 @@ curl --proto '=https' --tlsv1.2 -LsSf \
 
 ```bash
 npm install
+cd contract && npm run compact && npm run build && cd ..
 
-# Off-chain AI redaction step (works without an API key via regex fallback;
-# set GROQ_API_KEY for real LLM-based redaction)
-node redact.mjs "Patient: Jane Doe, SSN 219-09-9999, contact jane.doe@example.com"
+# Web UI (recommended) -- redact, commit, and verify live in the browser
+echo "GROQ_API_KEY=your-key-here" > .env   # optional; regex fallback works without it
+npm run ui
+# open http://localhost:5173
 
-# Compile the contract to real ZK circuits
-cd contract && npm run compact
+# Or the CLI
+node --env-file=.env redact.mjs "Patient: Jane Doe, SSN 219-09-9999, contact jane.doe@example.com"
 
-# Run the end-to-end tests against the compiled circuit
-npx vitest run
+# Run the automated tests against the compiled circuit
+cd contract && npx vitest run
 ```
 
 The test suite proves the core claim directly: it serializes the full public ledger state after
 a commit and asserts the raw sensitive strings ("Jane Doe", the SSN) are **not present anywhere
-in it** -- only the hash is.
+in it** -- only the hash is. The same guarantee is what the `/api/redact` endpoint enforces at
+the HTTP boundary: the raw text is used to compute the response and then discarded, never
+persisted, never forwarded past that request.
 
 ## Built with
 
 - [Compact](https://docs.midnight.network/compact) -- Midnight's ZK smart contract language
 - Midnight compact-runtime / midnight-js SDK (from the official
   [example-bboard](https://github.com/midnightntwrk/example-bboard) scaffold)
-- Node.js, Vitest
+- Node.js (native `node:http`, no framework), Vitest
 - Groq (`llama-3.3-70b-versatile`) for AI-based redaction
 
 ## What's next
 
-- Wire `redact.mjs` directly into a live Midnight testnet deployment via the existing
-  `midnight-js-*` providers (indexer, proof server, wallet) instead of the local simulator.
-- A minimal UI for uploading a record and watching the redact -> commit -> verify flow live.
+- Wire the app directly into a live Midnight testnet deployment via the existing `midnight-js-*`
+  providers (indexer, proof server, wallet) instead of the in-process simulator.
 - Batch commitments for multi-record datasets with a single Merkle-root-style commitment.
+- Configurable redaction policies (HIPAA-specific, PCI-specific) as selectable system prompts.

@@ -15,7 +15,8 @@
     ]
   },
   "scripts": {
-    "redact": "node redact.mjs"
+    "redact": "node redact.mjs",
+    "ui": "node --env-file=.env server.mjs"
   },
   "dependencies": {
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
