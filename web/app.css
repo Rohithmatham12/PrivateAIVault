@@ -1,0 +1,214 @@
+:root {
+  --bg: #0b0d12;
+  --panel: #12151c;
+  --border: #232838;
+  --text: #e6e8ee;
+  --muted: #8890a4;
+  --accent: #6ee7b7;
+  --accent-dim: #1f3d31;
+  --danger: #f87171;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+header {
+  max-width: 720px;
+  margin: 0 auto 2.5rem;
+  text-align: center;
+}
+
+h1 {
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.step-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.9rem;
+}
+
+.hint.success { color: var(--accent); }
+
+textarea {
+  width: 100%;
+  background: #0d0f16;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.875rem;
+  resize: vertical;
+  margin-bottom: 0.9rem;
+}
+
+button {
+  background: var(--accent);
+  color: #06251b;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.5; cursor: default; }
+button:hover:not(:disabled) { filter: brightness(1.08); }
+
+.output {
+  background: #0d0f16;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  min-height: 1.2rem;
+  margin-bottom: 0.9rem;
+}
+
+.commitment-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.mono-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+code {
+  font-family: ui-monospace, "SF Mono", monospace;
+  color: var(--accent);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.ledger-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.ledger-item {
+  background: #0d0f16;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.ledger-item .k {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.ledger-item .v {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.architecture .diagram {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  overflow-x: auto;
+  line-height: 1.4;
+}
+
+footer {
+  max-width: 720px;
+  margin: 2.5rem auto 0;
+  text-align: center;
+}
+
+footer a {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.match-true { color: var(--accent); font-weight: 600; }
+.match-false { color: var(--danger); font-weight: 600; }
+
+input[type="password"] {
+  width: 100%;
+  background: #0d0f16;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.runtime-note {
+  max-width: 720px;
+  margin: 0 auto 1.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}

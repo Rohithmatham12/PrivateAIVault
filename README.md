@@ -8,6 +8,33 @@ Built for the [Midnight Hackathon](https://midnight-hackathon.devpost.com) (MLH)
 ![compact](https://img.shields.io/badge/Compact-0.31.1-1abc9c)
 ![tests](https://img.shields.io/badge/tests-6%2F6%20passing-brightgreen)
 
+**Live demo: https://rohithmatham12.github.io/PrivateAIVault/** -- runs entirely in your browser.
+The real compiled Compact circuit executes client-side via WebAssembly; there is no backend, no
+Docker, no proof server, and nothing for anyone to keep running. See [`web/`](./web) for the
+browser build.
+
+## Who this is for
+
+The underlying problem: an organization needs to **prove a sensitive record exists, is unchanged,
+or was processed a certain way -- without storing or exposing the sensitive data itself**,
+anywhere, ever. That pattern shows up anywhere an audit trail and confidentiality are both
+required at once:
+
+- **Healthcare**: prove a patient record existed in a given state at a given time (e.g. for a
+  compliance or insurance dispute) without putting PHI anywhere near a public ledger, or even a
+  database an attacker could later breach.
+- **Legal / document notarization**: timestamp-prove a contract or filing hasn't been altered,
+  without publishing its contents.
+- **HR / background checks**: prove a screening was run against a specific, unaltered document
+  without retaining the document.
+- **Fintech KYC**: prove an identity document matches what was verified at onboarding, without
+  ever storing the ID data itself in a place that becomes a breach target.
+- **Whistleblowing / journalism**: prove a leaked document is authentic and unmodified without
+  exposing it (or its source) until the holder chooses to.
+
+The AI redaction step is what makes this practical for real-world text (medical notes, HR forms,
+free-text intake documents) rather than requiring pre-structured, pre-redacted input.
+
 ## What it does
 
 1. **AI redaction step**: an LLM (Groq, `llama-3.3-70b-versatile`) scans a raw sensitive record --
@@ -57,23 +84,39 @@ Nothing in this diagram is a mock. `server.mjs` imports the exact same compiled 
 against, wrapped in the same simulator pattern -- one long-lived instance per server process, so
 the UI has persistent ledger state across requests, same as a real chain would.
 
+The live demo (`web/`) is the same architecture with the HTTP hop removed: the compiled contract
+module + `@midnight-ntwrk/compact-runtime` are bundled to WebAssembly by Vite and run directly in
+the browser tab, so `commitRecord` and `verifyMatchesCommitment` execute as real circuit calls with
+no server in between at all.
+
 ## Project layout
 
 ```
-public/                           # browser UI (no framework, no build step)
-server.mjs                        # HTTP API + persistent contract session
-lib/redact-core.mjs               # shared AI redaction + commitment logic
-redact.mjs                        # CLI entrypoint (same logic as the UI)
-contract/src/bboard.compact       # the Midnight smart contract (Compact)
-contract/src/witnesses.ts         # private-state witness (local secret key)
+web/                               # browser build (Vite) -- deployed to GitHub Pages
+  src/main.js                      # app logic, runs the circuit client-side
+  src/contract-session.js          # browser port of the circuit session (WASM)
+  src/redact-core.js               # browser port of AI redaction + commitment logic
+  src/managed/                     # compiled contract, committed (no build step on Pages)
+public/                            # local Node-backed browser UI (no framework, no build step)
+server.mjs                         # HTTP API + persistent contract session (local dev only)
+lib/redact-core.mjs                # shared AI redaction + commitment logic (Node)
+redact.mjs                         # CLI entrypoint (same logic as the UI)
+contract/src/bboard.compact        # the Midnight smart contract (Compact)
+contract/src/witnesses.ts          # private-state witness (local secret key)
 contract/src/test/
-  bboard-simulator.ts             # local circuit simulator (no live network needed)
-  bboard.test.ts                  # end-to-end tests proving the privacy property
+  bboard-simulator.ts              # local circuit simulator (no live network needed)
+  bboard.test.ts                   # end-to-end tests proving the privacy property
 ```
 
 ## Try it
 
-Requires Node.js >= 24.11.1 and the [Compact compiler](https://docs.midnight.network/compact):
+**Easiest: use the live demo** -- https://rohithmatham12.github.io/PrivateAIVault/. Nothing to
+install, nothing to run, nothing to keep alive. Everything (redaction, hashing, the compiled
+circuit) executes in your browser tab.
+
+To run it locally instead, requires Node.js >= 24.11.1 and the
+[Compact compiler](https://docs.midnight.network/compact) (only needed if you want to recompile
+the contract yourself -- the browser build already ships the compiled output):
 
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf \
@@ -82,9 +125,13 @@ curl --proto '=https' --tlsv1.2 -LsSf \
 
 ```bash
 npm install
-cd contract && npm run compact && npm run build && cd ..
 
-# Web UI (recommended) -- redact, commit, and verify live in the browser
+# Browser build (same thing the live demo runs, built locally)
+cd web && ../node_modules/.bin/vite dev
+# open the URL vite prints
+
+# Or the Node-backed local UI
+cd contract && npm run compact && npm run build && cd ..
 echo "GROQ_API_KEY=your-key-here" > .env   # optional; regex fallback works without it
 npm run ui
 # open http://localhost:5173
@@ -95,6 +142,9 @@ node --env-file=.env redact.mjs "Patient: Jane Doe, SSN 219-09-9999, contact jan
 # Run the automated tests against the compiled circuit
 cd contract && npx vitest run
 ```
+
+None of these -- including the live demo -- need Docker or a proof server. Those are only
+relevant to the (separate, unfinished) live-testnet deployment path described below.
 
 The test suite proves the core claim directly: it serializes the full public ledger state after
 a commit and asserts the raw sensitive strings ("Jane Doe", the SSN) are **not present anywhere
@@ -115,14 +165,32 @@ persisted, never forwarded past that request.
 `deploy-testnet.mjs` is a real, non-interactive deployment script targeting Midnight's live
 Preprod testnet: it builds a fresh wallet, requests funds from the public faucet, registers dust
 generation, deploys `PrivateAIVault`, calls `commitRecord` with a real commitment, and reads the
-result back from the public indexer. It got as far as a real testnet address
-(`mn_addr_preprod1glqhphpxuhyt7f240xukgw7s870rl5e7lqgxke07accgqylfkjgqzmms8p`) and a confirmed
-faucet request (`Faucet response: OK`), but wallet sync against Preprod's live chain state didn't
-complete within the hackathon window -- this looks like a performance characteristic (or possible
-bug) in the still-young `wallet-sdk-facade` sync path against a chain with real history, not
-something wrong with the contract or the redaction logic. The contract itself is proven correct
-independently of network access: `contract/src/test/bboard.test.ts` runs the exact same compiled
-circuit through 6 passing tests.
+result back from the public indexer. It reached a real testnet address
+(`mn_addr_preprod1glqhphpxuhyt7f240xukgw7s870rl5e7lqgxke07accgqylfkjgqzmms8p`), and along the way
+surfaced two real, independent bugs in the still-young Midnight SDK stack -- diagnosed from
+first principles rather than guessed at:
+
+1. **Faucet automation was silently broken.** The script logged `Faucet response: OK` (HTTP 200)
+   on every run, yet the wallet never received funds. Ruled out network/connectivity issues first
+   with raw WebSocket probes against both the RPC node and the indexer (both healthy), then used
+   GraphQL introspection against the indexer's schema to discover an undocumented
+   `unshieldedTransactions(address)` subscription, queried it directly over a raw `ws` connection
+   with the `graphql-transport-ws` subprotocol, and confirmed `highestTransactionId: 0` --
+   proof no funds had ever actually landed on-chain. Reading the actual bundled
+   `FaucetClient` source in `@midnight-ntwrk/testkit-js` confirmed why: it sends a hardcoded dummy
+   Cloudflare Turnstile token (`'XXXX.DUMMY.TOKEN.XXXX'`), which can never pass real bot
+   verification. **Resolved** by requesting funds manually through the faucet's own UI (solving
+   the captcha as a human). The resulting transaction was independently verified as genuinely
+   on-chain via the same direct indexer query: `highestTransactionId: 502545`, a real 1000 tNight
+   UTXO, tx `6edf103094...`.
+2. **`wallet-sdk-facade`'s own sync layer never picked up the balance**, even after real funds
+   were confirmed on-chain by the method above. This is a second, separate bug from the faucet
+   issue -- the wallet's `state()` observable simply never emits an updated unshielded balance for
+   this address, in bundled/minified SDK code with no source maps available to debug further.
+   This is the genuine current blocker, not the contract or the redaction logic.
+
+The contract itself is proven correct independently of network access:
+`contract/src/test/bboard.test.ts` runs the exact same compiled circuit through 6 passing tests.
 
 ## What's next
 

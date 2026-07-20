@@ -59,6 +59,10 @@ jspm_packages/
 
 # Compact
 managed/
+# ...except the browser build's copy of the compiled contract, which must
+# be committed since GitHub Pages has no compile step.
+!web/src/managed/
+!web/src/managed/**
 
 .claude
 .midnight-expert

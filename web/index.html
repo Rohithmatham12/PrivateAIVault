@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PrivateAIVault</title>
+  <link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+  <header>
+    <h1>PrivateAIVault</h1>
+    <p class="subtitle">AI redaction + Midnight zero-knowledge commitments — sensitive data processed and provably committed, never exposed.</p>
+    <p class="badge">Midnight Hackathon (MLH) · AI Track</p>
+  </header>
+
+  <p class="runtime-note">Runs entirely in this browser tab — the real compiled Compact circuit executes client-side via WebAssembly. No server, no Docker, nothing to keep running.</p>
+
+  <main>
+    <section class="panel" id="step1">
+      <div class="step-label">Step 1 · Raw sensitive record</div>
+      <p class="hint">This text is processed locally in your browser. It is <strong>never</strong> sent to the Midnight contract or to any server of ours — only its commitment is.</p>
+      <textarea id="rawText" rows="3">Patient: Jane Doe, DOB 1990-04-12, SSN 219-09-9999, contact jane.doe@example.com or 555-0142, diagnosed with condition X on 2026-06-01.</textarea>
+      <p class="hint">Optional: paste a <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq API key</a> for real LLM redaction. Left blank, a regex-based redactor runs instead (fully offline, no key needed). The key is used only for a direct browser→Groq call and is never stored or sent anywhere else.</p>
+      <input type="password" id="groqKey" placeholder="gsk_... (optional)" autocomplete="off" />
+      <button id="redactBtn">Redact with AI →</button>
+    </section>
+
+    <section class="panel" id="step2" hidden>
+      <div class="step-label">Step 2 · AI-redacted output</div>
+      <p class="hint" id="methodLabel"></p>
+      <div class="output" id="redactedOutput"></div>
+      <div class="commitment-row">
+        <span class="mono-label">SHA-256 commitment</span>
+        <code id="commitmentHex"></code>
+      </div>
+      <p class="hint">This hash — not the raw text above — is the only value about to be sent to the Midnight smart contract.</p>
+      <button id="commitBtn">Commit to Midnight contract →</button>
+    </section>
+
+    <section class="panel" id="step3" hidden>
+      <div class="step-label">Step 3 · Ledger state (real Compact circuit, running in this tab)</div>
+      <div class="ledger-grid" id="ledgerGrid"></div>
+      <p class="hint success" id="commitSuccess"></p>
+    </section>
+
+    <section class="panel" id="step4">
+      <div class="step-label">Step 4 · Verify a candidate record</div>
+      <p class="hint">Anyone holding what they believe is the true original can check it against the commitment — without exposing their candidate to anyone else.</p>
+      <textarea id="candidateText" rows="2" placeholder="Paste a candidate original record to verify..."></textarea>
+      <button id="verifyBtn">Verify against commitment</button>
+      <div class="output" id="verifyResult"></div>
+    </section>
+
+    <section class="panel architecture">
+      <div class="step-label">Architecture</div>
+      <pre class="diagram">
+  Raw sensitive record (this browser tab, local only)
+          │
+          ▼
+  ┌───────────────────┐        never leaves this tab
+  │  AI redaction step │  ───▶  redacted text (safe to show)
+  │  (Groq LLM /       │
+  │   regex fallback)  │  ───▶  SHA-256 commitment ─────┐
+  └───────────────────┘                                 │
+                                                          ▼
+                                          ┌──────────────────────────────┐
+                                          │  Midnight smart contract      │
+                                          │  (Compact) — commitRecord     │
+                                          │  runs as real compiled WASM   │
+                                          │  in this tab, discloses ONLY  │
+                                          │  the hash                     │
+                                          └──────────────────────────────┘
+                                                          │
+                                          verifyMatchesCommitment
+                                          proves a match without
+                                          exposing the candidate
+      </pre>
+    </section>
+  </main>
+
+  <footer>
+    <a href="https://github.com/Rohithmatham12/PrivateAIVault" target="_blank" rel="noopener">Source on GitHub</a>
+  </footer>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
