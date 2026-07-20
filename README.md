@@ -8,10 +8,11 @@ Built for the [Midnight Hackathon](https://midnight-hackathon.devpost.com) (MLH)
 ![compact](https://img.shields.io/badge/Compact-0.31.1-1abc9c)
 ![tests](https://img.shields.io/badge/tests-6%2F6%20passing-brightgreen)
 
-**Live demo: https://rohithmatham12.github.io/PrivateAIVault/** -- runs entirely in your browser.
-The real compiled Compact circuit executes client-side via WebAssembly; there is no backend, no
-Docker, no proof server, and nothing for anyone to keep running. See [`web/`](./web) for the
-browser build.
+**Live: https://rohithmatham12.github.io/PrivateAIVault/** -- landing page with the full pitch,
+architecture, and use cases. **Try it directly: https://rohithmatham12.github.io/PrivateAIVault/app/**
+-- runs entirely in your browser. The real compiled Compact circuit executes client-side via
+WebAssembly; there is no backend, no Docker, no proof server, and nothing for anyone to keep
+running. See [`landing/`](./landing) for the marketing page and [`web/`](./web) for the app.
 
 ## Who this is for
 
@@ -110,7 +111,7 @@ contract/src/test/
 
 ## Try it
 
-**Easiest: use the live demo** -- https://rohithmatham12.github.io/PrivateAIVault/. Nothing to
+**Easiest: use the live demo** -- https://rohithmatham12.github.io/PrivateAIVault/app/. Nothing to
 install, nothing to run, nothing to keep alive. Everything (redaction, hashing, the compiled
 circuit) executes in your browser tab.
 

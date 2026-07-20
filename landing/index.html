@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PrivateAIVault — Prove sensitive data without exposing it</title>
+<meta name="description" content="AI redaction + Midnight zero-knowledge commitments. Prove a sensitive record exists and is unaltered, without ever storing or exposing the data itself. Runs entirely in your browser." />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="PrivateAIVault — Prove sensitive data without exposing it" />
+<meta property="og:description" content="AI redaction + Midnight zero-knowledge commitments. A real compiled ZK circuit running client-side — no backend, no Docker." />
+<meta property="og:image" content="https://rohithmatham12.github.io/PrivateAIVault/og-image.png" />
+<meta property="og:url" content="https://rohithmatham12.github.io/PrivateAIVault/" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="PrivateAIVault — Prove sensitive data without exposing it" />
+<meta name="twitter:description" content="AI redaction + Midnight zero-knowledge commitments, running entirely client-side." />
+<meta name="twitter:image" content="https://rohithmatham12.github.io/PrivateAIVault/og-image.png" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236ee7b7' stroke-width='2'%3E%3Crect x='3' y='11' width='18' height='10' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#top">PrivateAIVault</a>
+    <div class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#use-cases">Use cases</a>
+      <a href="#architecture">Architecture</a>
+      <a href="https://github.com/Rohithmatham12/PrivateAIVault" target="_blank" rel="noopener">GitHub</a>
+      <a class="btn btn-primary" href="./app/">Try it live</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <span class="eyebrow">Midnight Hackathon · AI Track</span>
+    <h1>Prove sensitive data is real —<br /><span class="accent">without ever exposing it.</span></h1>
+    <p class="hero-sub">
+      PrivateAIVault redacts sensitive records with AI, then commits only a cryptographic hash
+      to a zero-knowledge smart contract on Midnight. The raw data never leaves your browser —
+      not to a server, not to the chain, not to us.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="./app/">Try it live →</a>
+      <a class="btn btn-secondary" href="https://github.com/Rohithmatham12/PrivateAIVault" target="_blank" rel="noopener">View source</a>
+    </div>
+    <div class="trust-strip">
+      <span>Real compiled Compact ZK circuit</span>
+      <span>Runs client-side via WASM</span>
+      <span>No backend · No Docker</span>
+      <span>6/6 tests passing</span>
+    </div>
+  </div>
+</header>
+
+<section id="how-it-works">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">How it works</div>
+      <h2>Three steps, all provable, none of them exposing your data</h2>
+      <p>Every step below is a real execution — an actual LLM call, an actual SHA-256 hash, an actual compiled zero-knowledge circuit. Nothing here is simulated for the demo.</p>
+    </div>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h3>AI redaction</h3>
+        <p>An LLM scans the raw record and strips names, SSNs, emails, phone numbers, and medical/financial identifiers — producing a version that's safe to display.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h3>Commit a hash, not the data</h3>
+        <p>A SHA-256 commitment of the original record is computed locally. Only that 32-byte hash is ever sent to the smart contract — the record itself never is.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h3>Verify without revealing</h3>
+        <p>Anyone holding a candidate original can recompute its hash and check it against the on-chain commitment — proving a match without exposing the candidate to anyone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="use-cases">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Who this is for</div>
+      <h2>Anywhere confidentiality and an audit trail are both non-negotiable</h2>
+      <p>The same pattern — prove a record exists and is unaltered, without storing or exposing it — applies wherever sensitive text meets a compliance requirement.</p>
+    </div>
+    <div class="grid-cards">
+      <div class="use-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.5-1.5 3-3.5 3-6a4.5 4.5 0 0 0-8-2.8A4.5 4.5 0 0 0 6 8c0 2.5 1.5 4.5 3 6l5 5z"/><path d="M9 12h2l1-2 2 4 1-2h2"/></svg>
+        <h3>Healthcare</h3>
+        <p>Prove a patient record existed in a given state for a compliance or insurance dispute, without PHI ever touching a public ledger.</p>
+      </div>
+      <div class="use-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7l-3 6a3.5 3.5 0 0 0 7 0zM19 7l-3 6a3.5 3.5 0 0 0 7 0zM5 7h14M8.5 5.5 12 3l3.5 2.5"/></svg>
+        <h3>Legal &amp; notarization</h3>
+        <p>Timestamp-prove a contract or filing hasn't been altered, without publishing its contents to anyone.</p>
+      </div>
+      <div class="use-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+        <h3>Fintech KYC</h3>
+        <p>Prove an identity document matches what was verified at onboarding, without storing the ID data anywhere it can later be breached.</p>
+      </div>
+      <div class="use-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.25"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="18" cy="9" r="2.5"/><path d="M15.5 20a4 4 0 0 1 6.5-3.1"/></svg>
+        <h3>HR &amp; background checks</h3>
+        <p>Prove a screening ran against a specific, unaltered document without retaining the document itself.</p>
+      </div>
+      <div class="use-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 4v13a3 3 0 0 0 3 3M8 8h8M8 12h8M8 16h5"/></svg>
+        <h3>Journalism &amp; whistleblowing</h3>
+        <p>Prove a leaked document is authentic and unmodified without exposing it, or its source, until the holder chooses to.</p>
+      </div>
+      <div class="use-card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        <h3>Any regulated free text</h3>
+        <p>AI redaction makes this practical for real-world documents — medical notes, intake forms — not just pre-structured data.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Under the hood</div>
+      <h2>Nothing here is a mock</h2>
+      <p><code>commitRecord</code> and <code>verifyMatchesCommitment</code> are compiled to real zero-knowledge circuits by the Compact compiler. The live demo bundles the compiled contract and Midnight's compact-runtime to WebAssembly and runs it directly in your browser tab.</p>
+    </div>
+    <div class="arch-panel">
+<pre>  Raw sensitive record (your browser tab, local only)
+          │
+          ▼
+  ┌───────────────────┐        <span class="hl">never leaves this tab</span>
+  │  AI redaction step │  ───▶  redacted text (safe to show)
+  │  (Groq LLM /       │
+  │   regex fallback)  │  ───▶  SHA-256 commitment ─────┐
+  └───────────────────┘                                 │
+                                                          ▼
+                                          ┌──────────────────────────────┐
+                                          │  Midnight smart contract      │
+                                          │  (Compact) — commitRecord     │
+                                          │  runs as <span class="hl">real compiled WASM</span>   │
+                                          │  in this tab, discloses ONLY  │
+                                          │  the hash                     │
+                                          └──────────────────────────────┘
+                                                          │
+                                          verifyMatchesCommitment
+                                          proves a match without
+                                          exposing the candidate</pre>
+    </div>
+  </div>
+</section>
+
+<section class="cta-final">
+  <div class="wrap">
+    <h2>See the real circuit run, in your own browser.</h2>
+    <p>No signup, no install, no wallet required for the demo.</p>
+    <a class="btn btn-primary" href="./app/">Try PrivateAIVault →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Built for the Midnight Hackathon (MLH), AI Track — by Rohith Matam</span>
+    <div class="footer-links">
+      <a href="./app/">Live app</a>
+      <a href="https://github.com/Rohithmatham12/PrivateAIVault" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

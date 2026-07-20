@@ -1,0 +1,300 @@
+:root {
+  --bg: #0b0d12;
+  --panel: #12151c;
+  --panel-2: #161a23;
+  --border: #232838;
+  --text: #e6e8ee;
+  --muted: #8890a4;
+  --accent: #6ee7b7;
+  --accent-dim: #1f3d31;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --panel-2: #f1f3f6;
+    --border: #e3e6ec;
+    --text: #14171f;
+    --muted: #5b6472;
+    --accent-dim: #dcf6ea;
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+a { color: inherit; }
+a, button { cursor: pointer; }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Nav */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+nav .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 1rem;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.nav-links a:hover { color: var(--text); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 8px;
+  padding: 0.6rem 1.15rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: filter 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #06251b;
+}
+.btn-primary:hover { filter: brightness(1.08); }
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover { border-color: var(--muted); }
+
+/* Hero */
+.hero {
+  padding: 5.5rem 0 4.5rem;
+  text-align: center;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  margin-bottom: 1.75rem;
+}
+
+h1 {
+  font-size: clamp(2.25rem, 5vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin: 0 0 1.25rem;
+  max-width: 780px;
+  margin-inline: auto;
+}
+
+h1 .accent { color: var(--accent); }
+
+.hero-sub {
+  color: var(--muted);
+  font-size: 1.15rem;
+  max-width: 620px;
+  margin: 0 auto 2.25rem;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 0.9rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.hero-ctas .btn { padding: 0.8rem 1.5rem; font-size: 0.95rem; }
+
+.trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+
+.trust-strip span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  background: var(--panel);
+}
+
+/* Sections */
+section { padding: 4.5rem 0; }
+section.alt { background: var(--panel-2); border-block: 1px solid var(--border); }
+
+.section-head { max-width: 640px; margin: 0 auto 3rem; text-align: center; }
+.section-tag {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+.section-head h2 {
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.9rem;
+}
+.section-head p { color: var(--muted); margin: 0; }
+
+/* How it works */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+@media (max-width: 800px) { .steps { grid-template-columns: 1fr; } }
+
+.step-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.75rem;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.step-card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.step-card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+/* Use cases */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.1rem;
+}
+
+.use-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  transition: border-color 200ms ease, transform 200ms ease;
+}
+.use-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.use-card .icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 1rem;
+  color: var(--accent);
+}
+
+.use-card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.use-card p { margin: 0; color: var(--muted); font-size: 0.875rem; }
+
+/* Architecture */
+.arch-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 2rem;
+  overflow-x: auto;
+}
+.arch-panel pre {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.arch-panel pre .hl { color: var(--accent); }
+
+/* Final CTA */
+.cta-final {
+  text-align: center;
+  padding: 5rem 0;
+}
+.cta-final h2 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); margin: 0 0 1rem; letter-spacing: -0.02em; }
+.cta-final p { color: var(--muted); margin: 0 0 2rem; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2.5rem 0;
+}
+footer .wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+footer a { text-decoration: none; color: var(--muted); }
+footer a:hover { color: var(--text); }
+.footer-links { display: flex; gap: 1.5rem; }

@@ -1,10 +1,11 @@
-name: Deploy web UI to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   push:
     branches: [master]
     paths:
       - "web/**"
+      - "landing/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -27,9 +28,15 @@ jobs:
           node-version: 24
       - run: npm install
       - run: cd web && ../node_modules/.bin/vite build
+      - name: Assemble site (landing at /, app at /app)
+        run: |
+          mkdir -p site
+          cp -r landing/. site/
+          mkdir -p site/app
+          cp -r web/dist/. site/app/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web/dist
+          path: site
 
   deploy:
     needs: build
