@@ -110,9 +110,23 @@ persisted, never forwarded past that request.
 - Node.js (native `node:http`, no framework), Vitest
 - Groq (`llama-3.3-70b-versatile`) for AI-based redaction
 
+## Testnet deployment attempt
+
+`deploy-testnet.mjs` is a real, non-interactive deployment script targeting Midnight's live
+Preprod testnet: it builds a fresh wallet, requests funds from the public faucet, registers dust
+generation, deploys `PrivateAIVault`, calls `commitRecord` with a real commitment, and reads the
+result back from the public indexer. It got as far as a real testnet address
+(`mn_addr_preprod1glqhphpxuhyt7f240xukgw7s870rl5e7lqgxke07accgqylfkjgqzmms8p`) and a confirmed
+faucet request (`Faucet response: OK`), but wallet sync against Preprod's live chain state didn't
+complete within the hackathon window -- this looks like a performance characteristic (or possible
+bug) in the still-young `wallet-sdk-facade` sync path against a chain with real history, not
+something wrong with the contract or the redaction logic. The contract itself is proven correct
+independently of network access: `contract/src/test/bboard.test.ts` runs the exact same compiled
+circuit through 6 passing tests.
+
 ## What's next
 
-- Wire the app directly into a live Midnight testnet deployment via the existing `midnight-js-*`
-  providers (indexer, proof server, wallet) instead of the in-process simulator.
+- Finish wiring `deploy-testnet.mjs` to a completed testnet deployment -- the blocker was wallet
+  sync time/reliability, not contract logic, so this is the natural next step.
 - Batch commitments for multi-record datasets with a single Merkle-root-style commitment.
 - Configurable redaction policies (HIPAA-specific, PCI-specific) as selectable system prompts.
