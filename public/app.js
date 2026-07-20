@@ -14,20 +14,17 @@ async function post(url, body) {
   return json;
 }
 
-function renderLedger(ledger) {
+function renderLedger(recordId, record, recordCount) {
   $("ledgerGrid").innerHTML = `
-    <div class="ledger-item"><span class="k">State</span><span class="v">${ledger.state}</span></div>
-    <div class="ledger-item"><span class="k">Redacted spans</span><span class="v">${ledger.redactedSpanCount}</span></div>
-    <div class="ledger-item"><span class="k">Commitment</span><span class="v">${ledger.commitment || "none"}</span></div>
-    <div class="ledger-item"><span class="k">Owner (pubkey)</span><span class="v">${ledger.owner}</span></div>
+    <div class="ledger-item"><span class="k">Record id</span><span class="v">0x${recordId}</span></div>
+    <div class="ledger-item"><span class="k">Total records on this contract</span><span class="v">${recordCount}</span></div>
+    <div class="ledger-item"><span class="k">Commitment</span><span class="v">${record.commitment}</span></div>
+    <div class="ledger-item"><span class="k">Owner (pubkey)</span><span class="v">${record.owner}</span></div>
   `;
 }
 
 async function refreshState() {
-  const res = await fetch("/api/state");
-  const ledger = await res.json();
-  $("step3").hidden = false;
-  renderLedger(ledger);
+  await fetch("/api/state");
 }
 
 $("redactBtn").addEventListener("click", async () => {
@@ -57,14 +54,14 @@ $("commitBtn").addEventListener("click", async () => {
   $("commitBtn").disabled = true;
   $("commitBtn").textContent = "Committing...";
   try {
-    const { ledger } = await post("/api/commit", {
+    const { recordId, record, recordCount } = await post("/api/commit", {
       commitment: lastCommitment,
       spanCount: lastSpanCount,
     });
     $("step3").hidden = false;
-    renderLedger(ledger);
+    renderLedger(recordId, record, recordCount);
     $("commitSuccess").textContent =
-      "Committed. This is a real execution of the compiled Compact circuit. The raw record above was never sent.";
+      "Committed as a new record. This is a real execution of the compiled Compact circuit. The raw record above was never sent.";
     $("step3").scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (err) {
     $("commitSuccess").textContent = "";
@@ -78,9 +75,13 @@ $("commitBtn").addEventListener("click", async () => {
 $("verifyBtn").addEventListener("click", async () => {
   const candidateText = $("candidateText").value.trim();
   if (!candidateText) return;
+  if (!lastCommitment) {
+    $("verifyResult").innerHTML = '<span class="match-false">Redact and commit a record above first.</span>';
+    return;
+  }
   $("verifyBtn").disabled = true;
   try {
-    const { matches } = await post("/api/verify", { candidateText });
+    const { matches } = await post("/api/verify", { recordId: lastCommitment, candidateText });
     $("verifyResult").innerHTML = matches
       ? '<span class="match-true">✓ Matches the on-chain commitment</span>'
       : '<span class="match-false">✗ Does not match the on-chain commitment</span>';
@@ -88,6 +89,25 @@ $("verifyBtn").addEventListener("click", async () => {
     $("verifyResult").innerHTML = `<span class="match-false">${err.message}</span>`;
   } finally {
     $("verifyBtn").disabled = false;
+  }
+});
+
+$("thresholdBtn").addEventListener("click", async () => {
+  const threshold = parseInt($("thresholdInput").value, 10);
+  if (!lastCommitment || Number.isNaN(threshold)) {
+    $("thresholdResult").innerHTML = '<span class="match-false">Redact and commit a record above first.</span>';
+    return;
+  }
+  $("thresholdBtn").disabled = true;
+  try {
+    const { meetsThreshold } = await post("/api/prove-threshold", { recordId: lastCommitment, threshold });
+    $("thresholdResult").innerHTML = meetsThreshold
+      ? `<span class="match-true">✓ Proven: at least ${threshold} spans were redacted (exact count stays private)</span>`
+      : `<span class="match-false">✗ Cannot prove: fewer than ${threshold} spans were redacted</span>`;
+  } catch (err) {
+    $("thresholdResult").innerHTML = `<span class="match-false">${err.message}</span>`;
+  } finally {
+    $("thresholdBtn").disabled = false;
   }
 });
 

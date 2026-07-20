@@ -15,7 +15,10 @@ import {
   type Ledger,
   ledger,
 } from "../managed/bboard/contract/index.js";
-import { type BBoardPrivateState, witnesses } from "../witnesses.js";
+import { type BBoardPrivateState, witnesses, withSpanCount } from "../witnesses.js";
+
+const toHex = (bytes: Uint8Array): string =>
+  Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 
 export class BBoardSimulator {
   readonly contract: Contract<BBoardPrivateState>;
@@ -25,7 +28,7 @@ export class BBoardSimulator {
     this.contract = new Contract<BBoardPrivateState>(witnesses);
     const { currentPrivateState, currentContractState, currentZswapLocalState } =
       this.contract.initialState(
-        createConstructorContext({ secretKey }, "0".repeat(64)),
+        createConstructorContext({ secretKey, spanCounts: {} }, "0".repeat(64)),
       );
     this.circuitContext = {
       currentPrivateState,
@@ -42,21 +45,44 @@ export class BBoardSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  /** Commit a pre-hashed sensitive record. The raw text never appears here. */
-  public commitRecord(secretDataHash: Uint8Array, spanCount: bigint): Ledger {
+  /**
+   * Commit a pre-hashed sensitive record under recordId. The raw text
+   * never appears here, and spanCount never touches the ledger -- it's
+   * only remembered in local private state, for later threshold proofs.
+   */
+  public commitRecord(recordId: Uint8Array, secretDataHash: Uint8Array, spanCount: number): Ledger {
     this.circuitContext = this.contract.impureCircuits.commitRecord(
       this.circuitContext,
+      recordId,
       secretDataHash,
-      spanCount,
     ).context;
+    this.circuitContext = {
+      ...this.circuitContext,
+      currentPrivateState: withSpanCount(this.circuitContext.currentPrivateState, toHex(recordId), spanCount),
+    };
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  /** Returns true iff candidateHash matches the on-chain commitment. */
-  public verifyMatchesCommitment(candidateHash: Uint8Array): boolean {
+  /** Returns true iff candidateHash matches the on-chain commitment for recordId. */
+  public verifyMatchesCommitment(recordId: Uint8Array, candidateHash: Uint8Array): boolean {
     return this.contract.impureCircuits.verifyMatchesCommitment(
       this.circuitContext,
+      recordId,
       candidateHash,
+    ).result;
+  }
+
+  /**
+   * Proves the record's redacted span count is at least threshold,
+   * without revealing the exact count. Only works for records whose
+   * span count is known in this simulator's local private state
+   * (i.e. ones committed through this same instance).
+   */
+  public proveRedactionThreshold(recordId: Uint8Array, threshold: number): boolean {
+    return this.contract.impureCircuits.proveRedactionThreshold(
+      this.circuitContext,
+      recordId,
+      BigInt(threshold),
     ).result;
   }
 }

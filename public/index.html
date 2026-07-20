@@ -34,7 +34,8 @@
     </section>
 
     <section class="panel" id="step3" hidden>
-      <div class="step-label">Step 3 · On-chain ledger state (real Compact circuit)</div>
+      <div class="step-label">Step 3 · On-chain record (real Compact circuit, one of many)</div>
+      <p class="hint">This deployed contract holds an unbounded number of independent records, one per commitment. Committing another record above adds a new one; it never overwrites this one.</p>
       <div class="ledger-grid" id="ledgerGrid"></div>
       <p class="hint success" id="commitSuccess"></p>
     </section>
@@ -47,6 +48,18 @@
       <div class="output" id="verifyResult"></div>
     </section>
 
+    <section class="panel" id="step5">
+      <div class="step-label">Step 5 · Prove a redaction threshold, without revealing the count</div>
+      <p class="hint">The exact number of redacted spans is never written to the ledger. This proves a policy threshold ("at least N sensitive fields were redacted") using that count as a private witness, disclosing only the yes/no answer.</p>
+      <div class="commitment-row">
+        <span class="mono-label">At least</span>
+        <input type="number" id="thresholdInput" value="1" min="0" style="width:5rem; background:#0d0f16; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:0.5rem 0.6rem;" />
+        <span class="mono-label">redacted spans</span>
+      </div>
+      <button id="thresholdBtn">Prove threshold →</button>
+      <div class="output" id="thresholdResult"></div>
+    </section>
+
     <section class="panel architecture">
       <div class="step-label">Architecture</div>
       <pre class="diagram">
@@ -57,18 +70,22 @@
   │  AI redaction step │  ───▶  redacted text (safe to show)
   │  (Groq LLM /       │
   │   regex fallback)  │  ───▶  SHA-256 commitment ─────┐
-  └───────────────────┘                                 │
+  └───────────────────┘        span count stays local   │
+                                (private witness only)   │
                                                           ▼
                                           ┌──────────────────────────────┐
                                           │  Midnight smart contract      │
                                           │  (Compact): commitRecord      │
-                                          │  discloses ONLY the hash      │
-                                          │  to the public ledger         │
+                                          │  discloses ONLY the hash,     │
+                                          │  keyed by record id, into a   │
+                                          │  map of unbounded records     │
                                           └──────────────────────────────┘
                                                           │
-                                          verifyMatchesCommitment
-                                          proves a match without
-                                          exposing the candidate
+                                    ┌─────────────────────┴─────────────────────┐
+                                    ▼                                           ▼
+                        verifyMatchesCommitment                proveRedactionThreshold
+                        proves a match without                 proves a count threshold
+                        exposing the candidate                 without revealing the count
       </pre>
     </section>
   </main>

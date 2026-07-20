@@ -51,8 +51,9 @@
     <div class="trust-strip">
       <span>Real compiled Compact ZK circuit</span>
       <span>Runs client-side via WASM</span>
-      <span>No backend · No Docker</span>
-      <span>6/6 tests passing</span>
+      <span>Unbounded records per contract</span>
+      <span>Selective disclosure, not just hashing</span>
+      <span>9/9 tests passing</span>
     </div>
   </div>
 </header>
@@ -61,7 +62,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="section-tag">How it works</div>
-      <h2>Three steps, all provable, none of them exposing your data</h2>
+      <h2>Four steps, all provable, none of them exposing your data</h2>
       <p>Every step below is a real execution: an actual LLM call, an actual SHA-256 hash, an actual compiled zero-knowledge circuit. Nothing here is simulated for the demo.</p>
     </div>
     <div class="steps">
@@ -73,12 +74,17 @@
       <div class="step-card">
         <div class="step-num">2</div>
         <h3>Commit a hash, not the data</h3>
-        <p>A SHA-256 commitment of the original record is computed locally. Only that 32-byte hash is ever sent to the smart contract. The record itself never is.</p>
+        <p>A SHA-256 commitment of the original record is computed locally and committed under its own record id, into a contract that holds an unbounded number of records. The raw record itself never is sent anywhere.</p>
       </div>
       <div class="step-card">
         <div class="step-num">3</div>
         <h3>Verify without revealing</h3>
         <p>Anyone holding a candidate original can recompute its hash and check it against the on-chain commitment, proving a match without exposing the candidate to anyone.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <h3>Prove a threshold, not the number</h3>
+        <p>The exact redaction count never touches the ledger. A separate circuit proves "at least N sensitive fields were redacted" using that count as a private input, disclosing only the answer.</p>
       </div>
     </div>
   </div>
@@ -131,7 +137,7 @@
     <div class="section-head">
       <div class="section-tag">Under the hood</div>
       <h2>Nothing here is a mock</h2>
-      <p><code>commitRecord</code> and <code>verifyMatchesCommitment</code> are compiled to real zero-knowledge circuits by the Compact compiler. The live demo bundles the compiled contract and Midnight's compact-runtime to WebAssembly and runs it directly in your browser tab.</p>
+      <p><code>commitRecord</code>, <code>verifyMatchesCommitment</code>, and <code>proveRedactionThreshold</code> are compiled to real zero-knowledge circuits by the Compact compiler. The live demo bundles the compiled contract and Midnight's compact-runtime to WebAssembly and runs it directly in your browser tab.</p>
     </div>
     <div class="arch-panel">
 <pre>  Raw sensitive record (your browser tab, local only)
@@ -141,19 +147,22 @@
   │  AI redaction step │  ───▶  redacted text (safe to show)
   │  (Groq LLM /       │
   │   regex fallback)  │  ───▶  SHA-256 commitment ─────┐
-  └───────────────────┘                                 │
+  └───────────────────┘        span count stays local   │
+                                (private witness only)   │
                                                           ▼
                                           ┌──────────────────────────────┐
                                           │  Midnight smart contract      │
                                           │  (Compact): commitRecord      │
-                                          │  runs as <span class="hl">real compiled WASM</span>   │
-                                          │  in this tab, discloses ONLY  │
-                                          │  the hash                     │
+                                          │  runs as <span class="hl">real compiled WASM</span>,  │
+                                          │  keyed by record id, into a   │
+                                          │  map of unbounded records     │
                                           └──────────────────────────────┘
                                                           │
-                                          verifyMatchesCommitment
-                                          proves a match without
-                                          exposing the candidate</pre>
+                                    ┌─────────────────────┴─────────────────────┐
+                                    ▼                                           ▼
+                        verifyMatchesCommitment                proveRedactionThreshold
+                        proves a match without                 proves a count threshold
+                        exposing the candidate                 without revealing the count</pre>
     </div>
   </div>
 </section>

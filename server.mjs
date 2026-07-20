@@ -21,8 +21,8 @@ import {
   createConstructorContext,
   CostModel,
 } from "@midnight-ntwrk/compact-runtime";
-import { Contract, ledger, RecordState } from "./contract/dist/managed/bboard/contract/index.js";
-import { witnesses } from "./contract/dist/witnesses.js";
+import { Contract, ledger } from "./contract/dist/managed/bboard/contract/index.js";
+import { witnesses, withSpanCount } from "./contract/dist/witnesses.js";
 import { processRecord, sha256Hex } from "./lib/redact-core.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,13 +31,15 @@ const PORT = process.env.PORT || 5173;
 // ---------------------------------------------------------------------
 // A thin wrapper around the compiled contract, structurally identical
 // to contract/src/test/bboard-simulator.ts, kept as a single
-// long-lived instance so the demo UI has persistent ledger state.
+// long-lived instance so the demo UI has persistent ledger state
+// across requests -- and, since the ledger is now a map, an unbounded
+// number of independently committed records.
 // ---------------------------------------------------------------------
 class ContractSession {
   constructor(secretKey) {
     this.contract = new Contract(witnesses);
     const { currentPrivateState, currentContractState, currentZswapLocalState } =
-      this.contract.initialState(createConstructorContext({ secretKey }, "0".repeat(64)));
+      this.contract.initialState(createConstructorContext({ secretKey, spanCounts: {} }, "0".repeat(64)));
     this.circuitContext = {
       currentPrivateState,
       currentZswapLocalState,
@@ -46,23 +48,45 @@ class ContractSession {
     };
   }
 
-  getLedger() {
-    return ledger(this.circuitContext.currentQueryContext.state);
+  getRecordCount() {
+    return ledger(this.circuitContext.currentQueryContext.state).recordCount;
   }
 
-  commitRecord(secretDataHash, spanCount) {
+  getRecord(recordId) {
+    const l = ledger(this.circuitContext.currentQueryContext.state);
+    if (!l.commitmentOf.member(recordId)) return null;
+    return {
+      commitment: `0x${bytesToHex(l.commitmentOf.lookup(recordId))}`,
+      owner: `0x${bytesToHex(l.ownerOf.lookup(recordId))}`,
+    };
+  }
+
+  commitRecord(recordId, secretDataHash, spanCount) {
     this.circuitContext = this.contract.impureCircuits.commitRecord(
       this.circuitContext,
+      recordId,
       secretDataHash,
-      spanCount,
     ).context;
-    return this.getLedger();
+    this.circuitContext = {
+      ...this.circuitContext,
+      currentPrivateState: withSpanCount(this.circuitContext.currentPrivateState, bytesToHex(recordId), spanCount),
+    };
+    return this.getRecord(recordId);
   }
 
-  verifyMatchesCommitment(candidateHash) {
+  verifyMatchesCommitment(recordId, candidateHash) {
     return this.contract.impureCircuits.verifyMatchesCommitment(
       this.circuitContext,
+      recordId,
       candidateHash,
+    ).result;
+  }
+
+  proveRedactionThreshold(recordId, threshold) {
+    return this.contract.impureCircuits.proveRedactionThreshold(
+      this.circuitContext,
+      recordId,
+      BigInt(threshold),
     ).result;
   }
 }
@@ -84,15 +108,6 @@ function hexToBytes(hex) {
 
 function bytesToHex(bytes) {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function serializeLedger(l) {
-  return {
-    state: l.state === RecordState.EMPTY ? "EMPTY" : "COMMITTED",
-    commitment: l.commitment.is_some ? `0x${bytesToHex(l.commitment.value)}` : null,
-    redactedSpanCount: l.redactedSpanCount.toString(),
-    owner: `0x${bytesToHex(l.owner)}`,
-  };
 }
 
 // ---------------------------------------------------------------------
@@ -134,7 +149,7 @@ function sendJson(res, status, obj) {
 const server = createServer(async (req, res) => {
   try {
     if (req.method === "GET" && req.url === "/api/state") {
-      return sendJson(res, 200, serializeLedger(session.getLedger()));
+      return sendJson(res, 200, { recordCount: session.getRecordCount().toString() });
     }
 
     if (req.method === "POST" && req.url === "/api/redact") {
@@ -155,22 +170,39 @@ const server = createServer(async (req, res) => {
         return sendJson(res, 400, { error: "commitment and spanCount are required" });
       }
       try {
-        const ledgerState = session.commitRecord(hexToBytes(commitment), BigInt(spanCount));
-        return sendJson(res, 200, { ledger: serializeLedger(ledgerState) });
+        // The commitment hash doubles as the record id: each distinct
+        // redacted document gets its own entry in the contract's
+        // (unbounded) record map, rather than overwriting a single slot.
+        const recordId = hexToBytes(commitment);
+        const record = session.commitRecord(recordId, recordId, spanCount);
+        return sendJson(res, 200, { recordId: commitment, record, recordCount: session.getRecordCount().toString() });
       } catch (err) {
         return sendJson(res, 409, { error: String(err.message || err) });
       }
     }
 
     if (req.method === "POST" && req.url === "/api/verify") {
-      const { candidateText } = await readJsonBody(req);
-      if (!candidateText || typeof candidateText !== "string") {
-        return sendJson(res, 400, { error: "candidateText is required" });
+      const { recordId, candidateText } = await readJsonBody(req);
+      if (!recordId || !candidateText || typeof candidateText !== "string") {
+        return sendJson(res, 400, { error: "recordId and candidateText are required" });
       }
       const candidateHash = hexToBytes(sha256Hex(candidateText));
       try {
-        const matches = session.verifyMatchesCommitment(candidateHash);
+        const matches = session.verifyMatchesCommitment(hexToBytes(recordId), candidateHash);
         return sendJson(res, 200, { matches });
+      } catch (err) {
+        return sendJson(res, 409, { error: String(err.message || err) });
+      }
+    }
+
+    if (req.method === "POST" && req.url === "/api/prove-threshold") {
+      const { recordId, threshold } = await readJsonBody(req);
+      if (!recordId || typeof threshold !== "number") {
+        return sendJson(res, 400, { error: "recordId and threshold are required" });
+      }
+      try {
+        const meetsThreshold = session.proveRedactionThreshold(hexToBytes(recordId), threshold);
+        return sendJson(res, 200, { meetsThreshold });
       } catch (err) {
         return sendJson(res, 409, { error: String(err.message || err) });
       }

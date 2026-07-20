@@ -4,7 +4,7 @@
 
 ![state](https://img.shields.io/badge/status-working%20end--to--end-6ee7b7)
 ![compact](https://img.shields.io/badge/Compact-0.31.1-1abc9c)
-![tests](https://img.shields.io/badge/tests-6%2F6%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-9%2F9%20passing-brightgreen)
 
 **Live: https://rohithmatham12.github.io/PrivateAIVault/** -- landing page with the full pitch,
 architecture, and use cases. **Try it directly: https://rohithmatham12.github.io/PrivateAIVault/app/**
@@ -40,19 +40,28 @@ free-text intake documents) rather than requiring pre-structured, pre-redacted i
    names, SSNs, emails, phone numbers, dates of birth, medical/financial identifiers -- and produces
    a redacted version safe to display. A regex-based fallback keeps the whole system runnable
    without an API key.
-2. **On-chain commitment**: a SHA-256 commitment of the **raw, unredacted** record is computed
-   locally and passed to a [Compact](https://docs.midnight.network/compact) smart contract on
-   Midnight (`contract/src/bboard.compact`). The `commitRecord` circuit discloses only that
-   32-byte hash to the public ledger. The raw record itself never leaves the machine that computed
-   it, is never transmitted to Midnight, and is not recoverable from anything on the ledger.
+2. **On-chain commitment, one of many**: a SHA-256 commitment of the **raw, unredacted** record is
+   computed locally and passed to a [Compact](https://docs.midnight.network/compact) smart contract
+   on Midnight (`contract/src/bboard.compact`), keyed by a record id. The `commitRecord` circuit
+   discloses only that 32-byte hash to the public ledger, into a map that can hold an unbounded
+   number of independent records -- so one deployed contract serves as an organization's whole
+   ongoing audit trail, not a single-use slot. The raw record itself never leaves the machine that
+   computed it, is never transmitted to Midnight, and is not recoverable from anything on the ledger.
 3. **On-chain verification**: anyone independently holding a candidate original record can
    recompute its hash locally and call `verifyMatchesCommitment` to prove -- without exposing the
    candidate to any third party -- whether it matches the committed record.
+4. **Threshold proofs without disclosure**: the number of redacted spans is never written to the
+   ledger by any circuit -- it only ever exists as a private witness. `proveRedactionThreshold`
+   proves a policy claim ("at least N sensitive fields were redacted from this record") using that
+   count as a private input, disclosing only the yes/no answer. This is Midnight's actual
+   differentiator (selective disclosure) rather than plain hash notarization: a generic
+   proof-of-existence service can tell you a hash matches, but can't prove a property of data it
+   never had access to in the first place.
 
-This is proven end-to-end against a **real compiled Compact contract**, not a mock:
-`commitRecord` and `verifyMatchesCommitment` are compiled to real zero-knowledge circuits
-(proving/verifying keys, zkIR) by the Compact compiler, and both the automated test suite and the
-web UI drive those real compiled circuits, not a simulated stand-in for them.
+This is proven end-to-end against a **real compiled Compact contract**, not a mock: all three
+circuits are compiled to real zero-knowledge circuits (proving/verifying keys, zkIR) by the Compact
+compiler, and the automated test suite, the local UI, and the real on-chain path all drive those
+same compiled circuits, not a simulated stand-in for them.
 
 ## Architecture
 
@@ -60,22 +69,24 @@ web UI drive those real compiled circuits, not a simulated stand-in for them.
                     Browser (public/)
                           │  raw text, typed locally
                           ▼
-        ┌──────────────────────────────────┐
-        │  server.mjs (Node, no framework)  │
-        │                                    │
-        │  /api/redact  ─▶ lib/redact-core   │──▶ Groq LLM (or regex fallback)
-        │                    .mjs            │      redacted text + SHA-256 commitment
-        │                                    │      (raw text discarded after this call,
-        │                                    │       never stored, never forwarded)
-        │  /api/commit  ─▶ ContractSession   │──▶ compiled Compact circuit
-        │                  (real contract    │      commitRecord(hash, spanCount)
-        │                   instance, same   │      discloses ONLY the hash to the ledger
-        │                   code path as the │
-        │                   test suite)      │
-        │  /api/verify  ─▶ ContractSession   │──▶ verifyMatchesCommitment(hash)
-        │                                    │      boolean result, no data exposed
-        │  /api/state   ─▶ current ledger    │
-        └──────────────────────────────────┘
+        ┌────────────────────────────────────┐
+        │  server.mjs (Node, no framework)    │
+        │                                      │
+        │  /api/redact    ─▶ lib/redact-core   │──▶ Groq LLM (or regex fallback)
+        │                      .mjs            │      redacted text + SHA-256 commitment
+        │                                      │      (raw text discarded after this call,
+        │                                      │       never stored, never forwarded)
+        │  /api/commit    ─▶ ContractSession   │──▶ compiled Compact circuit
+        │                    (real contract    │      commitRecord(recordId, hash)
+        │                     instance, same   │      discloses ONLY the hash, into an
+        │                     code path as the │      unbounded map of records
+        │                     test suite)      │
+        │  /api/verify    ─▶ ContractSession   │──▶ verifyMatchesCommitment(id, hash)
+        │  /api/prove-        (same instance)  │      boolean result, no data exposed
+        │    threshold                         │──▶ proveRedactionThreshold(id, n)
+        │                                      │      proves a count threshold without
+        │  /api/state     ─▶ record count      │      ever disclosing the real count
+        └────────────────────────────────────┘
 ```
 
 Nothing in this diagram is a mock. `server.mjs` imports the exact same compiled contract module
@@ -85,8 +96,10 @@ the UI has persistent ledger state across requests, same as a real chain would.
 
 The live demo (`web/`) is the same architecture with the HTTP hop removed: the compiled contract
 module + `@midnight-ntwrk/compact-runtime` are bundled to WebAssembly by Vite and run directly in
-the browser tab, so `commitRecord` and `verifyMatchesCommitment` execute as real circuit calls with
-no server in between at all.
+the browser tab, so all three circuits execute as real circuit calls with no server in between at
+all. An optional, separate on-chain mode (`web/src/onchain/`) goes one step further: connected to a
+real wallet (Lace), it submits real, provable transactions to Midnight's public Preprod testnet,
+with proving delegated to the wallet so no local Docker proof server is required.
 
 ## Project layout
 
@@ -96,12 +109,14 @@ web/                               # browser build (Vite) -- deployed to GitHub 
   src/contract-session.js          # browser port of the circuit session (WASM)
   src/redact-core.js               # browser port of AI redaction + commitment logic
   src/managed/                     # compiled contract, committed (no build step on Pages)
+  src/onchain/                     # real Preprod deployment via a connected wallet (Lace)
+  src/onchain-ui.js                # opt-in on-chain UI, lazy-loaded (not in the default bundle)
 public/                            # local Node-backed browser UI (no framework, no build step)
 server.mjs                         # HTTP API + persistent contract session (local dev only)
 lib/redact-core.mjs                # shared AI redaction + commitment logic (Node)
 redact.mjs                         # CLI entrypoint (same logic as the UI)
 contract/src/bboard.compact        # the Midnight smart contract (Compact)
-contract/src/witnesses.ts          # private-state witness (local secret key)
+contract/src/witnesses.ts          # private-state witness (local secret key + span counts)
 contract/src/test/
   bboard-simulator.ts              # local circuit simulator (no live network needed)
   bboard.test.ts                   # end-to-end tests proving the privacy property
@@ -189,11 +204,24 @@ first principles rather than guessed at:
    This is the genuine current blocker, not the contract or the redaction logic.
 
 The contract itself is proven correct independently of network access:
-`contract/src/test/bboard.test.ts` runs the exact same compiled circuit through 6 passing tests.
+`contract/src/test/bboard.test.ts` runs the exact same compiled circuit through 9 passing tests.
+
+## Real on-chain deployment, via a wallet
+
+`deploy-testnet.mjs` (above) drove the network directly with a raw seed-based wallet and hit the
+`wallet-sdk-facade` sync bug. `web/src/onchain/` takes a different, more realistic path: it ports
+Midnight's own official browser wallet-connector pattern (from the `example-bboard` reference
+implementation) so the app deploys and calls the real contract through a connected wallet (Lace)
+instead of managing a wallet itself. Proving is delegated to the wallet's own prover-server
+configuration, so this still doesn't need a local Docker proof server. It's wired up, builds clean,
+and degrades gracefully with a clear error if a wallet isn't connected or doesn't expose a prover
+endpoint, but hasn't yet been exercised against a live Lace connection.
 
 ## What's next
 
-- Finish wiring `deploy-testnet.mjs` to a completed testnet deployment -- the blocker was wallet
-  sync time/reliability, not contract logic, so this is the natural next step.
-- Batch commitments for multi-record datasets with a single Merkle-root-style commitment.
+- Verify the real on-chain path (`web/src/onchain/`) against a live Lace wallet connection.
+- A UI for browsing/searching the records already committed to a given deployed contract, now that
+  one contract holds many of them.
+- Record versioning: let a record id be re-committed as an explicit new version, with the prior
+  commitment kept in history rather than just rejected outright.
 - Configurable redaction policies (HIPAA-specific, PCI-specific) as selectable system prompts.

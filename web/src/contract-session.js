@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Browser port of ../../server.mjs's ContractSession / ../../contract/src/test/bboard-simulator.ts.
-// Runs the REAL compiled Compact circuit (commitRecord / verifyMatchesCommitment)
-// entirely client-side via @midnight-ntwrk/compact-runtime's WASM build.
-// No network, no proof server, no Docker -- this is local circuit execution,
-// the same simulator pattern the contract's own test suite runs against.
+// Runs the REAL compiled Compact circuit (commitRecord / verifyMatchesCommitment /
+// proveRedactionThreshold) entirely client-side via @midnight-ntwrk/compact-runtime's
+// WASM build. No network, no proof server, no Docker -- this is local circuit
+// execution, the same simulator pattern the contract's own test suite runs against.
 
 import {
   QueryContext,
@@ -11,16 +11,18 @@ import {
   createConstructorContext,
   CostModel,
 } from "@midnight-ntwrk/compact-runtime";
-import { Contract, ledger, RecordState } from "./managed/bboard/contract/index.js";
-import { witnesses } from "./managed/witnesses.js";
+import { Contract, ledger } from "./managed/bboard/contract/index.js";
+import { witnesses, withSpanCount } from "./managed/witnesses.js";
 
-export { RecordState };
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 export class ContractSession {
   constructor(secretKey) {
     this.contract = new Contract(witnesses);
     const { currentPrivateState, currentContractState, currentZswapLocalState } =
-      this.contract.initialState(createConstructorContext({ secretKey }, "0".repeat(64)));
+      this.contract.initialState(createConstructorContext({ secretKey, spanCounts: {} }, "0".repeat(64)));
     this.circuitContext = {
       currentPrivateState,
       currentZswapLocalState,
@@ -29,23 +31,45 @@ export class ContractSession {
     };
   }
 
-  getLedger() {
-    return ledger(this.circuitContext.currentQueryContext.state);
+  getRecordCount() {
+    return ledger(this.circuitContext.currentQueryContext.state).recordCount;
   }
 
-  commitRecord(secretDataHash, spanCount) {
+  getRecord(recordId) {
+    const l = ledger(this.circuitContext.currentQueryContext.state);
+    if (!l.commitmentOf.member(recordId)) return null;
+    return {
+      commitment: `0x${bytesToHex(l.commitmentOf.lookup(recordId))}`,
+      owner: `0x${bytesToHex(l.ownerOf.lookup(recordId))}`,
+    };
+  }
+
+  commitRecord(recordId, secretDataHash, spanCount) {
     this.circuitContext = this.contract.impureCircuits.commitRecord(
       this.circuitContext,
+      recordId,
       secretDataHash,
-      spanCount,
     ).context;
-    return this.getLedger();
+    this.circuitContext = {
+      ...this.circuitContext,
+      currentPrivateState: withSpanCount(this.circuitContext.currentPrivateState, bytesToHex(recordId), spanCount),
+    };
+    return this.getRecord(recordId);
   }
 
-  verifyMatchesCommitment(candidateHash) {
+  verifyMatchesCommitment(recordId, candidateHash) {
     return this.contract.impureCircuits.verifyMatchesCommitment(
       this.circuitContext,
+      recordId,
       candidateHash,
+    ).result;
+  }
+
+  proveRedactionThreshold(recordId, threshold) {
+    return this.contract.impureCircuits.proveRedactionThreshold(
+      this.circuitContext,
+      recordId,
+      BigInt(threshold),
     ).result;
   }
 }
@@ -63,15 +87,4 @@ export function hexToBytes(hex) {
   return bytes;
 }
 
-export function bytesToHex(bytes) {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export function serializeLedger(l) {
-  return {
-    state: l.state === RecordState.EMPTY ? "EMPTY" : "COMMITTED",
-    commitment: l.commitment.is_some ? `0x${bytesToHex(l.commitment.value)}` : null,
-    redactedSpanCount: l.redactedSpanCount.toString(),
-    owner: `0x${bytesToHex(l.owner)}`,
-  };
-}
+export { bytesToHex };

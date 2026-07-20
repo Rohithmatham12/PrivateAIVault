@@ -36,12 +36,12 @@ export function mountOnchainUI(root, { getLastCommitment, getLastSpanCount }) {
   root.appendChild(controlsEl);
   root.appendChild(ledgerEl);
 
-  function renderLedger(ledger) {
+  function renderRecord(recordId, record) {
     ledgerEl.innerHTML = `
-      <div class="ledger-item"><span class="k">State</span><span class="v">${ledger.state}</span></div>
-      <div class="ledger-item"><span class="k">Redacted spans</span><span class="v">${ledger.redactedSpanCount}</span></div>
-      <div class="ledger-item"><span class="k">Commitment</span><span class="v">${ledger.commitment || "none"}</span></div>
-      <div class="ledger-item"><span class="k">Owner (pubkey)</span><span class="v">${ledger.owner}</span></div>
+      <div class="ledger-item"><span class="k">Record id</span><span class="v">0x${recordId}</span></div>
+      <div class="ledger-item"><span class="k">Total records on this contract</span><span class="v">${record.recordCount}</span></div>
+      <div class="ledger-item"><span class="k">Commitment</span><span class="v">${record.commitment}</span></div>
+      <div class="ledger-item"><span class="k">Owner (pubkey)</span><span class="v">${record.owner}</span></div>
     `;
   }
 
@@ -65,7 +65,6 @@ export function mountOnchainUI(root, { getLastCommitment, getLastSpanCount }) {
         vault = await OnchainVault.deploy(providers);
         statusEl.textContent = `Deployed. Contract address: ${vault.deployedContractAddress}`;
         renderInteractControls();
-        renderLedger(await vault.getLedgerState());
       } catch (err) {
         statusEl.innerHTML = `<span class="match-false">${err.message}</span>`;
         deployBtn.disabled = false;
@@ -81,7 +80,6 @@ export function mountOnchainUI(root, { getLastCommitment, getLastSpanCount }) {
         vault = await OnchainVault.join(providers, address);
         statusEl.textContent = `Joined. Contract address: ${vault.deployedContractAddress}`;
         renderInteractControls();
-        renderLedger(await vault.getLedgerState());
       } catch (err) {
         statusEl.innerHTML = `<span class="match-false">${err.message}</span>`;
       }
@@ -103,16 +101,29 @@ export function mountOnchainUI(root, { getLastCommitment, getLastSpanCount }) {
         <div class="output" id="onchainVerifyResult"></div>
       </div>
     `);
+    const thresholdRow = el(`
+      <div style="margin-top:0.75rem;">
+        <div class="commitment-row">
+          <span class="mono-label">At least</span>
+          <input type="number" id="onchainThreshold" value="1" min="0" style="width:5rem; background:#0d0f16; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:0.5rem 0.6rem;" />
+          <span class="mono-label">redacted spans</span>
+        </div>
+        <button id="onchainThresholdBtn">Prove threshold on-chain →</button>
+        <div class="output" id="onchainThresholdResult"></div>
+      </div>
+    `);
     controlsEl.appendChild(commitBtn);
     controlsEl.appendChild(verifyRow);
+    controlsEl.appendChild(thresholdRow);
 
     commitBtn.addEventListener("click", async () => {
       commitBtn.disabled = true;
       commitBtn.textContent = "Submitting (real transaction, may take up to a minute)...";
       try {
-        const { txHash } = await vault.commitRecord(hexToBytes(getLastCommitment()), BigInt(getLastSpanCount()));
+        const recordId = hexToBytes(getLastCommitment());
+        const { txHash } = await vault.commitRecord(recordId, recordId, getLastSpanCount());
         statusEl.textContent = `Committed on-chain. Transaction: ${txHash}`;
-        renderLedger(await vault.getLedgerState());
+        renderRecord(getLastCommitment(), await vault.getRecord(recordId));
       } catch (err) {
         statusEl.innerHTML = `<span class="match-false">${err.message}</span>`;
       } finally {
@@ -124,13 +135,29 @@ export function mountOnchainUI(root, { getLastCommitment, getLastSpanCount }) {
     verifyRow.querySelector("#onchainVerifyBtn").addEventListener("click", async () => {
       const candidateText = verifyRow.querySelector("#onchainCandidate").value.trim();
       const resultEl = verifyRow.querySelector("#onchainVerifyResult");
-      if (!candidateText) return;
+      if (!candidateText || !getLastCommitment()) return;
       try {
+        const recordId = hexToBytes(getLastCommitment());
         const candidateHash = hexToBytes(await sha256Hex(candidateText));
-        const matches = await vault.verifyMatchesCommitment(candidateHash);
+        const matches = await vault.verifyMatchesCommitment(recordId, candidateHash);
         resultEl.innerHTML = matches
           ? '<span class="match-true">✓ Matches the on-chain commitment</span>'
           : '<span class="match-false">✗ Does not match the on-chain commitment</span>';
+      } catch (err) {
+        resultEl.innerHTML = `<span class="match-false">${err.message}</span>`;
+      }
+    });
+
+    thresholdRow.querySelector("#onchainThresholdBtn").addEventListener("click", async () => {
+      const threshold = parseInt(thresholdRow.querySelector("#onchainThreshold").value, 10);
+      const resultEl = thresholdRow.querySelector("#onchainThresholdResult");
+      if (!getLastCommitment() || Number.isNaN(threshold)) return;
+      try {
+        const recordId = hexToBytes(getLastCommitment());
+        const meetsThreshold = await vault.proveRedactionThreshold(recordId, threshold);
+        resultEl.innerHTML = meetsThreshold
+          ? `<span class="match-true">✓ Proven on-chain: at least ${threshold} spans redacted (exact count stays private)</span>`
+          : `<span class="match-false">✗ Cannot prove: fewer than ${threshold} spans were redacted</span>`;
       } catch (err) {
         resultEl.innerHTML = `<span class="match-false">${err.message}</span>`;
       }

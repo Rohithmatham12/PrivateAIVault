@@ -34,11 +34,12 @@ async function main() {
   console.log(`Redaction method: ${method}`);
   console.log("Redacted record (safe to display):");
   console.log(`  "${redacted}"\n`);
-  console.log(`Redacted span count (safe to disclose on-chain): ${spanCount}`);
+  console.log(`Redacted span count (kept private -- never written to the ledger, only`);
+  console.log(`usable later as a witness for a redaction-threshold proof): ${spanCount}`);
   console.log(`SHA-256 commitment (the ONLY thing passed to the Midnight`);
-  console.log(`contract's commitRecord circuit):`);
+  console.log(`contract's commitRecord circuit, doubling as this record's id):`);
   console.log(`  0x${commitment}\n`);
-  console.log("Next step: contract.commitRecord(commitment, spanCount)");
+  console.log("Next step: contract.commitRecord(recordId, commitment)");
   console.log("Try the live UI instead: npm run ui");
 }
 

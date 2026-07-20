@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Browser port of the official example-bboard's BBoardAPI, adapted for
-// PrivateAIVault's commitRecord/verifyMatchesCommitment circuits. Deploys
-// or joins the real on-chain contract and submits real transactions through
-// the connected wallet (proof generation delegated to the wallet).
+// PrivateAIVault's commitRecord/verifyMatchesCommitment/proveRedactionThreshold
+// circuits. Deploys or joins the real on-chain contract and submits real
+// transactions through the connected wallet (proof generation delegated
+// to the wallet).
 import { deployContract, findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
-import { ledger, RecordState } from "../managed/bboard/contract/index.js";
+import { ledger } from "../managed/bboard/contract/index.js";
 import { CompiledVaultContract } from "../managed/compiled-contract.js";
-import { createBBoardPrivateState } from "../managed/witnesses.js";
+import { createBBoardPrivateState, withSpanCount } from "../managed/witnesses.js";
 
 const PRIVATE_STATE_KEY = "privateAIVaultPrivateState";
 
@@ -16,14 +17,8 @@ function randomBytes32() {
   return bytes;
 }
 
-function serializeLedger(l) {
-  const bytesToHex = (bytes) => Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return {
-    state: l.state === RecordState.EMPTY ? "EMPTY" : "COMMITTED",
-    commitment: l.commitment.is_some ? `0x${bytesToHex(l.commitment.value)}` : null,
-    redactedSpanCount: l.redactedSpanCount.toString(),
-    owner: `0x${bytesToHex(l.owner)}`,
-  };
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export class OnchainVault {
@@ -33,19 +28,39 @@ export class OnchainVault {
     this.deployedContractAddress = deployedContract.deployTxData.public.contractAddress;
   }
 
-  async getLedgerState() {
+  async getRecord(recordIdBytes) {
     const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
     if (!contractState) throw new Error("Contract state not found on-chain yet.");
-    return serializeLedger(ledger(contractState.data));
+    const l = ledger(contractState.data);
+    if (!l.commitmentOf.member(recordIdBytes)) return null;
+    return {
+      state: "COMMITTED",
+      recordCount: l.recordCount.toString(),
+      commitment: `0x${bytesToHex(l.commitmentOf.lookup(recordIdBytes))}`,
+      owner: `0x${bytesToHex(l.ownerOf.lookup(recordIdBytes))}`,
+    };
   }
 
-  async commitRecord(secretDataHashBytes, spanCount) {
-    const txData = await this.deployedContract.callTx.commitRecord(secretDataHashBytes, spanCount);
+  async commitRecord(recordIdBytes, secretDataHashBytes, spanCount) {
+    const txData = await this.deployedContract.callTx.commitRecord(recordIdBytes, secretDataHashBytes);
+    // Remember this record's span count locally so a later threshold
+    // proof (by this same wallet) can find it -- it is never written
+    // to the ledger by any circuit.
+    const current = await this.providers.privateStateProvider.get(PRIVATE_STATE_KEY);
+    if (current) {
+      const updated = withSpanCount(current, bytesToHex(recordIdBytes), spanCount);
+      await this.providers.privateStateProvider.set(PRIVATE_STATE_KEY, updated);
+    }
     return { txHash: txData.public.txHash, blockHeight: txData.public.blockHeight };
   }
 
-  async verifyMatchesCommitment(candidateHashBytes) {
-    const txData = await this.deployedContract.callTx.verifyMatchesCommitment(candidateHashBytes);
+  async verifyMatchesCommitment(recordIdBytes, candidateHashBytes) {
+    const txData = await this.deployedContract.callTx.verifyMatchesCommitment(recordIdBytes, candidateHashBytes);
+    return txData.public.result ?? txData.private.result;
+  }
+
+  async proveRedactionThreshold(recordIdBytes, threshold) {
+    const txData = await this.deployedContract.callTx.proveRedactionThreshold(recordIdBytes, BigInt(threshold));
     return txData.public.result ?? txData.private.result;
   }
 

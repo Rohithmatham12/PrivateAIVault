@@ -3,66 +3,80 @@
 // without ever putting the raw sensitive content on the public ledger.
 //
 // Flow:
-// 1. Off-chain (redact.mjs), an AI step scans raw text, classifies and
-//    redacts sensitive spans (names, emails, ids), and computes a
-//    SHA-256 commitment of the ORIGINAL raw text. The raw text itself
-//    never leaves the local machine past this point.
-// 2. Only that commitment (a 32-byte hash) is passed into this
-//    contract. The circuit discloses it to the public ledger. Nothing
-//    about the underlying sensitive content is derivable from it.
+// 1. Off-chain (redact.mjs / the browser app), an AI step scans raw text,
+//    classifies and redacts sensitive spans (names, emails, ids), and
+//    computes a SHA-256 commitment of the ORIGINAL raw text. The raw
+//    text itself never leaves the local machine past this point.
+// 2. Only that commitment (a 32-byte hash) is passed into this contract,
+//    keyed by a caller-chosen record id (so one deployed contract holds
+//    an org's whole ongoing audit trail, not just a single record).
 // 3. Anyone holding a candidate original text can locally recompute its
-//    SHA-256 and call verifyMatchesCommitment to prove -- without
-//    revealing the candidate to anyone else -- whether it matches the
+//    SHA-256 and call verifyMatchesCommitment to prove, without
+//    revealing the candidate to anyone else, whether it matches the
 //    committed record.
+// 4. proveRedactionThreshold proves that a committed record's redacted
+//    span count meets a policy threshold (e.g. "at least 3 PII fields
+//    were removed") without ever disclosing the exact count. The count
+//    is supplied as a private witness, not stored on the public ledger.
 
 pragma language_version 0.23;
 
 import CompactStandardLibrary;
 
-export enum RecordState {
-  EMPTY,
-  COMMITTED
-}
+// Commitment hash for each committed record, keyed by a caller-chosen
+// record id. One deployed contract can hold an unbounded number of
+// records, so it can serve as an organization's whole audit trail.
+export ledger commitmentOf: Map<Bytes<32>, Bytes<32>>;
 
-export ledger state: RecordState;
+// Owner binding for each record, derived from a private local key.
+export ledger ownerOf: Map<Bytes<32>, Bytes<32>>;
 
-// Public commitment to the raw sensitive record: a one-way hash,
-// computed off-chain, never the data itself.
-export ledger commitment: Maybe<Bytes<32>>;
+// Total number of records ever committed through this contract.
+export ledger recordCount: Counter;
 
-// How many spans the off-chain AI step redacted. A count is not
-// sensitive on its own, so it is safe to disclose directly.
-export ledger redactedSpanCount: Counter;
-
-// Owner binding, derived from a private local key -- never the raw key.
-export ledger owner: Bytes<32>;
-
-constructor() {
-  state = RecordState.EMPTY;
-  commitment = none<Bytes<32>>();
-}
+constructor() {}
 
 witness localSecretKey(): Bytes<32>;
 
+// The number of sensitive spans redacted from the record with the given
+// id. Private: never written to the ledger, only used inside
+// proveRedactionThreshold to produce a yes/no answer about a threshold.
+witness redactionSpanCountOf(recordId: Bytes<32>): Uint<16>;
+
+// recordId: a caller-chosen identifier for this record (e.g. a hash of
+// an internal document id), letting the same logical record be
+// referenced again later (for verification, threshold proofs, etc.)
+// without depending on its content hash.
+//
 // secretDataHash: a commitment (e.g. SHA-256) computed OFF-CHAIN over
 // the raw sensitive record. The raw record itself is never passed to
 // this circuit, never touches the ledger, and is not recoverable from
 // the hash.
-export circuit commitRecord(secretDataHash: Bytes<32>, spanCount: Uint<16>): [] {
-  assert(state == RecordState.EMPTY, "A record is already committed");
-  owner = disclose(publicKey(localSecretKey()));
-  commitment = disclose(some<Bytes<32>>(secretDataHash));
-  redactedSpanCount.increment(disclose(spanCount));
-  state = RecordState.COMMITTED;
+export circuit commitRecord(recordId: Bytes<32>, secretDataHash: Bytes<32>): [] {
+  assert(!commitmentOf.member(disclose(recordId)), "A record with this id is already committed");
+  commitmentOf.insert(disclose(recordId), disclose(secretDataHash));
+  ownerOf.insert(disclose(recordId), disclose(publicKey(localSecretKey())));
+  recordCount.increment(1);
 }
 
 // Compare a candidate commitment (recomputed locally by whoever holds a
-// candidate original) against the one stored on-chain. The comparison
-// itself never exposes either value to a third party -- only the
-// caller learns the boolean result.
-export circuit verifyMatchesCommitment(candidateHash: Bytes<32>): Boolean {
-  assert(state == RecordState.COMMITTED, "No record committed yet");
-  return some<Bytes<32>>(candidateHash) == commitment;
+// candidate original) against the one stored on-chain for a given
+// record id. The comparison itself never exposes either value to a
+// third party -- only the caller learns the boolean result.
+export circuit verifyMatchesCommitment(recordId: Bytes<32>, candidateHash: Bytes<32>): Boolean {
+  assert(commitmentOf.member(disclose(recordId)), "No record committed with this id");
+  return commitmentOf.lookup(disclose(recordId)) == disclose(candidateHash);
+}
+
+// Prove that the record's redacted span count is at least `threshold`,
+// e.g. to satisfy a compliance policy ("at least 3 PII fields were
+// redacted from this record"), without ever disclosing the actual
+// count. The count is supplied by the caller's own wallet as a private
+// witness; it is never written to the public ledger, in this circuit
+// or any other.
+export circuit proveRedactionThreshold(recordId: Bytes<32>, threshold: Uint<16>): Boolean {
+  assert(commitmentOf.member(disclose(recordId)), "No record committed with this id");
+  return disclose(redactionSpanCountOf(recordId) >= threshold);
 }
 
 export circuit publicKey(sk: Bytes<32>): Bytes<32> {

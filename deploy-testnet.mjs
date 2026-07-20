@@ -102,7 +102,7 @@ async function main() {
   const deployed = await deployContract(providers, {
     compiledContract: CompiledBBoardContractContract,
     privateStateId: "privateaivault-private-state",
-    initialPrivateState: { secretKey: crypto.getRandomValues(new Uint8Array(32)) },
+    initialPrivateState: { secretKey: crypto.getRandomValues(new Uint8Array(32)), spanCounts: {} },
   });
   const contractAddress = deployed.deployTxData.public.contractAddress;
   logger.info(`Deployed! Contract address: ${contractAddress}`);
@@ -110,9 +110,11 @@ async function main() {
 
   const rawRecord =
     "Patient: Jane Doe, DOB 1990-04-12, SSN 219-09-9999, contact jane.doe@example.com, diagnosed with condition X.";
-  const commitment = new Uint8Array(createHash("sha256").update(rawRecord, "utf8").digest());
+  // The commitment doubles as this record's id, so one deployed contract
+  // can hold an unbounded number of independent records.
+  const recordId = new Uint8Array(createHash("sha256").update(rawRecord, "utf8").digest());
   logger.info(`Committing a real record's SHA-256 hash on-chain (raw text stays local)...`);
-  const txData = await deployed.callTx.commitRecord(commitment, 5n);
+  const txData = await deployed.callTx.commitRecord(recordId, recordId);
   logger.info(`commitRecord tx hash: ${txData.public.txHash}, block: ${txData.public.blockHeight}`);
 
   logger.info("Reading committed state back from the public Preprod indexer...");
@@ -121,10 +123,9 @@ async function main() {
   const ledgerState = ledger(contractState.data);
   logger.info({
     onChainLedgerState: {
-      state: ledgerState.state,
-      commitment: `0x${toHex(ledgerState.commitment.value)}`,
-      redactedSpanCount: ledgerState.redactedSpanCount.toString(),
-      owner: `0x${toHex(ledgerState.owner)}`,
+      recordCount: ledgerState.recordCount.toString(),
+      commitment: `0x${toHex(ledgerState.commitmentOf.lookup(recordId))}`,
+      owner: `0x${toHex(ledgerState.ownerOf.lookup(recordId))}`,
     },
   });
 
