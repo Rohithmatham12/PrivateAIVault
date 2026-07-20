@@ -87,4 +87,21 @@ $("verifyBtn").addEventListener("click", async () => {
   }
 });
 
+$("onchainEnableBtn").addEventListener("click", async () => {
+  $("onchainEnableBtn").disabled = true;
+  $("onchainEnableBtn").textContent = "Loading...";
+  try {
+    const { mountOnchainUI } = await import("./onchain-ui.js");
+    $("onchainEnableBtn").hidden = true;
+    mountOnchainUI($("onchainBody"), {
+      getLastCommitment: () => lastCommitment,
+      getLastSpanCount: () => lastSpanCount,
+    });
+  } catch (err) {
+    $("onchainEnableBtn").disabled = false;
+    $("onchainEnableBtn").textContent = "Enable on-chain mode →";
+    alert(err.message);
+  }
+});
+
 refreshState();

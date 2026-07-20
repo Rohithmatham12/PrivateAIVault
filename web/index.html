@@ -51,6 +51,13 @@
       <div class="output" id="verifyResult"></div>
     </section>
 
+    <section class="panel" id="onchainPanel">
+      <div class="step-label">Optional · Real testnet deployment</div>
+      <p class="hint">Everything above runs the real circuit locally, in memory, in this tab. This section instead submits a real, provable transaction to Midnight's public Preprod testnet through a connected wallet. It needs the <a href="https://www.lace.io/" target="_blank" rel="noopener">Lace wallet</a> extension, switched to the Midnight Preprod network, with some free test tokens from its faucet. A transaction can take up to a minute to confirm.</p>
+      <button id="onchainEnableBtn">Enable on-chain mode →</button>
+      <div id="onchainBody" hidden></div>
+    </section>
+
     <section class="panel architecture">
       <div class="step-label">Architecture</div>
       <pre class="diagram">
