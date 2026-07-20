@@ -1,7 +1,7 @@
 {
   "name": "privateaivault",
   "version": "0.1.0",
-  "description": "AI redaction + Midnight zero-knowledge commitments, so sensitive data is processed and provably committed without ever being exposed. Built for the Midnight Hackathon (MLH), AI Track.",
+  "description": "AI redaction + Midnight zero-knowledge commitments, so sensitive data is processed and provably committed without ever being exposed.",
   "author": "Rohith Matam",
   "license": "Apache-2.0",
   "private": true,

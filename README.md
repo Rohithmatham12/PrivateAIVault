@@ -1,7 +1,5 @@
 # PrivateAIVault
 
-Built for the [Midnight Hackathon](https://midnight-hackathon.devpost.com) (MLH) -- AI Track.
-
 **AI applications that process sensitive user data without ever exposing the underlying information.**
 
 ![state](https://img.shields.io/badge/status-working%20end--to--end-6ee7b7)

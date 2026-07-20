@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PrivateAIVault — Prove sensitive data without exposing it</title>
+<title>PrivateAIVault: prove sensitive data without exposing it</title>
 <meta name="description" content="AI redaction + Midnight zero-knowledge commitments. Prove a sensitive record exists and is unaltered, without ever storing or exposing the data itself. Runs entirely in your browser." />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="PrivateAIVault — Prove sensitive data without exposing it" />
-<meta property="og:description" content="AI redaction + Midnight zero-knowledge commitments. A real compiled ZK circuit running client-side — no backend, no Docker." />
+<meta property="og:title" content="PrivateAIVault: prove sensitive data without exposing it" />
+<meta property="og:description" content="AI redaction + Midnight zero-knowledge commitments. A real compiled ZK circuit running client-side, with no backend and no Docker." />
 <meta property="og:image" content="https://rohithmatham12.github.io/PrivateAIVault/og-image.png" />
 <meta property="og:url" content="https://rohithmatham12.github.io/PrivateAIVault/" />
 
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="PrivateAIVault — Prove sensitive data without exposing it" />
+<meta name="twitter:title" content="PrivateAIVault: prove sensitive data without exposing it" />
 <meta name="twitter:description" content="AI redaction + Midnight zero-knowledge commitments, running entirely client-side." />
 <meta name="twitter:image" content="https://rohithmatham12.github.io/PrivateAIVault/og-image.png" />
 
@@ -37,11 +37,11 @@
 
 <header class="hero" id="top">
   <div class="wrap">
-    <span class="eyebrow">Midnight Hackathon · AI Track</span>
-    <h1>Prove sensitive data is real —<br /><span class="accent">without ever exposing it.</span></h1>
+    <span class="eyebrow">Zero-knowledge · Private by design</span>
+    <h1>Prove sensitive data is real,<br /><span class="accent">without ever exposing it.</span></h1>
     <p class="hero-sub">
       PrivateAIVault redacts sensitive records with AI, then commits only a cryptographic hash
-      to a zero-knowledge smart contract on Midnight. The raw data never leaves your browser —
+      to a zero-knowledge smart contract on Midnight. The raw data never leaves your browser:
       not to a server, not to the chain, not to us.
     </p>
     <div class="hero-ctas">
@@ -62,23 +62,23 @@
     <div class="section-head">
       <div class="section-tag">How it works</div>
       <h2>Three steps, all provable, none of them exposing your data</h2>
-      <p>Every step below is a real execution — an actual LLM call, an actual SHA-256 hash, an actual compiled zero-knowledge circuit. Nothing here is simulated for the demo.</p>
+      <p>Every step below is a real execution: an actual LLM call, an actual SHA-256 hash, an actual compiled zero-knowledge circuit. Nothing here is simulated for the demo.</p>
     </div>
     <div class="steps">
       <div class="step-card">
         <div class="step-num">1</div>
         <h3>AI redaction</h3>
-        <p>An LLM scans the raw record and strips names, SSNs, emails, phone numbers, and medical/financial identifiers — producing a version that's safe to display.</p>
+        <p>An LLM scans the raw record and strips names, SSNs, emails, phone numbers, and medical/financial identifiers, producing a version that's safe to display.</p>
       </div>
       <div class="step-card">
         <div class="step-num">2</div>
         <h3>Commit a hash, not the data</h3>
-        <p>A SHA-256 commitment of the original record is computed locally. Only that 32-byte hash is ever sent to the smart contract — the record itself never is.</p>
+        <p>A SHA-256 commitment of the original record is computed locally. Only that 32-byte hash is ever sent to the smart contract. The record itself never is.</p>
       </div>
       <div class="step-card">
         <div class="step-num">3</div>
         <h3>Verify without revealing</h3>
-        <p>Anyone holding a candidate original can recompute its hash and check it against the on-chain commitment — proving a match without exposing the candidate to anyone.</p>
+        <p>Anyone holding a candidate original can recompute its hash and check it against the on-chain commitment, proving a match without exposing the candidate to anyone.</p>
       </div>
     </div>
   </div>
@@ -89,7 +89,7 @@
     <div class="section-head">
       <div class="section-tag">Who this is for</div>
       <h2>Anywhere confidentiality and an audit trail are both non-negotiable</h2>
-      <p>The same pattern — prove a record exists and is unaltered, without storing or exposing it — applies wherever sensitive text meets a compliance requirement.</p>
+      <p>The same pattern (prove a record exists and is unaltered, without storing or exposing it) applies wherever sensitive text meets a compliance requirement.</p>
     </div>
     <div class="grid-cards">
       <div class="use-card">
@@ -120,7 +120,7 @@
       <div class="use-card">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
         <h3>Any regulated free text</h3>
-        <p>AI redaction makes this practical for real-world documents — medical notes, intake forms — not just pre-structured data.</p>
+        <p>AI redaction makes this practical for real-world documents such as medical notes and intake forms, not just pre-structured data.</p>
       </div>
     </div>
   </div>
@@ -145,7 +145,7 @@
                                                           ▼
                                           ┌──────────────────────────────┐
                                           │  Midnight smart contract      │
-                                          │  (Compact) — commitRecord     │
+                                          │  (Compact): commitRecord      │
                                           │  runs as <span class="hl">real compiled WASM</span>   │
                                           │  in this tab, discloses ONLY  │
                                           │  the hash                     │
@@ -168,7 +168,7 @@
 
 <footer>
   <div class="wrap">
-    <span>Built for the Midnight Hackathon (MLH), AI Track — by Rohith Matam</span>
+    <span>PrivateAIVault, by Rohith Matam</span>
     <div class="footer-links">
       <a href="./app/">Live app</a>
       <a href="https://github.com/Rohithmatham12/PrivateAIVault" target="_blank" rel="noopener">GitHub</a>

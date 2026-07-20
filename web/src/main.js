@@ -17,7 +17,7 @@ function renderLedger(ledger) {
   $("ledgerGrid").innerHTML = `
     <div class="ledger-item"><span class="k">State</span><span class="v">${ledger.state}</span></div>
     <div class="ledger-item"><span class="k">Redacted spans</span><span class="v">${ledger.redactedSpanCount}</span></div>
-    <div class="ledger-item"><span class="k">Commitment</span><span class="v">${ledger.commitment || "—"}</span></div>
+    <div class="ledger-item"><span class="k">Commitment</span><span class="v">${ledger.commitment || "none"}</span></div>
     <div class="ledger-item"><span class="k">Owner (pubkey)</span><span class="v">${ledger.owner}</span></div>
   `;
 }
@@ -59,7 +59,7 @@ $("commitBtn").addEventListener("click", () => {
     $("step3").hidden = false;
     renderLedger(serializeLedger(ledger));
     $("commitSuccess").textContent =
-      "Committed. This is a real execution of the compiled Compact circuit, running in this browser tab — the raw record above was never sent anywhere.";
+      "Committed. This is a real execution of the compiled Compact circuit, running in this browser tab. The raw record above was never sent anywhere.";
     $("step3").scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (err) {
     $("commitSuccess").textContent = "";
